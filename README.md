@@ -123,8 +123,8 @@ when you seed it:
   days overdue — load the board and the safety net will have already
   flagged it `missed` and backfilled a fresh pending cycle.
 - **Coastal Realty** (monthly, claimed by Priya Natarajan) seeds with a
-  pending drop request — switch to Jamie Rivera (the admin) and open
+  pending drop request — switch to Tylor C. (the admin) and open
   **Approvals** to approve or reject it.
-- Switch to Jamie Rivera and open **Submissions** to see every completed
+- Switch to Tylor C. and open **Submissions** to see every completed
   cycle across all creators, filterable by client/creator/date range and
   sortable — due date vs. completed-at makes late submissions easy to spot.

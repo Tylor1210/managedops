@@ -8,7 +8,7 @@ INSERT INTO clients (name) VALUES
   ('Evergreen Dental');
 
 INSERT INTO creators (name, email, is_admin) VALUES
-  ('Jamie Rivera', 'jamie@managedops.demo', 1),
+  ('Tylor C.', 'tylor.clont@gmail.com', 1),
   ('Sam Okafor', 'sam@managedops.demo', 0),
   ('Priya Natarajan', 'priya@managedops.demo', 0);
 
