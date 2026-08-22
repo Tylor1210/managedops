@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Managed Ops</title>
+<link rel="icon" href="data:," />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="modalOverlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle"></h3>
+    <p id="modalDesc" class="modal-desc"></p>
+    <textarea id="modalInput" rows="3" placeholder="Optional note"></textarea>
+    <div class="modal-actions">
+      <button id="modalCancel" class="btn btn-ghost">Cancel</button>
+      <button id="modalConfirm" class="btn btn-primary">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Managed Ops</span>
+    </div>
+    <div class="topbar-controls">
+      <label class="acting-as">
+        <span class="acting-as-label">Acting as</span>
+        <select id="creatorSelect"></select>
+      </label>
+    </div>
+  </div>
+  <nav class="tabnav" id="tabnav">
+    <button class="tab active" data-tab="board">Board</button>
+    <button class="tab" data-tab="approvals" hidden>Approvals</button>
+    <button class="tab" data-tab="submissions" hidden>Submissions</button>
+  </nav>
+</header>
+
+<main id="app" class="app">
+
+  <section id="view-board" class="view">
+    <div class="board-grid">
+
+      <section class="panel" id="panel-unclaimed">
+        <header class="panel-head">
+          <h2>Unclaimed pool</h2>
+          <span class="count-badge" id="count-unclaimed">0</span>
+        </header>
+        <div class="card-grid" id="list-unclaimed"></div>
+      </section>
+
+      <section class="panel" id="panel-mine">
+        <header class="panel-head">
+          <h2>My ops</h2>
+          <span class="count-badge" id="count-mine">0</span>
+        </header>
+        <div class="card-grid" id="list-mine"></div>
+      </section>
+
+      <section class="panel" id="panel-due">
+        <header class="panel-head">
+          <h2>Due &amp; overdue</h2>
+          <span class="count-badge" id="count-due">0</span>
+        </header>
+        <div class="card-grid" id="list-due"></div>
+      </section>
+
+      <section class="panel" id="panel-completed">
+        <header class="panel-head">
+          <h2>Completed log</h2>
+          <select id="completedClientFilter" class="filter-select">
+            <option value="">All clients</option>
+          </select>
+        </header>
+        <div class="table-scroll">
+          <table class="log-table" id="table-completed">
+            <thead>
+              <tr><th>Client</th><th>Task</th><th>Due</th><th>Completed</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="empty-note" id="empty-completed" hidden>No completions yet.</p>
+      </section>
+
+    </div>
+  </section>
+
+  <section id="view-approvals" class="view" hidden>
+    <section class="panel">
+      <header class="panel-head">
+        <h2>Pending drop requests</h2>
+        <span class="count-badge" id="count-approvals">0</span>
+      </header>
+      <div class="card-grid" id="list-approvals"></div>
+      <p class="empty-note" id="empty-approvals" hidden>No pending drop requests.</p>
+    </section>
+  </section>
+
+  <section id="view-submissions" class="view" hidden>
+    <section class="panel">
+      <header class="panel-head">
+        <h2>All submissions</h2>
+      </header>
+      <div class="filters-row">
+        <select id="subClientFilter" class="filter-select"><option value="">All clients</option></select>
+        <select id="subCreatorFilter" class="filter-select"><option value="">All creators</option></select>
+        <label class="date-filter">From <input type="date" id="subFrom" /></label>
+        <label class="date-filter">To <input type="date" id="subTo" /></label>
+        <select id="subSortBy" class="filter-select">
+          <option value="completedAt">Sort: Completed</option>
+          <option value="dueDate">Sort: Due date</option>
+          <option value="client">Sort: Client</option>
+          <option value="creator">Sort: Creator</option>
+        </select>
+        <button id="subSortDir" class="btn btn-ghost" data-dir="desc">↓ Newest</button>
+      </div>
+      <div class="table-scroll">
+        <table class="log-table" id="table-submissions">
+          <thead>
+            <tr><th>Client</th><th>Task</th><th>Cadence</th><th>Creator</th><th>Due</th><th>Completed</th><th>Late?</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="empty-note" id="empty-submissions" hidden>No submissions match these filters.</p>
+    </section>
+  </section>
+
+</main>
+
+<script src="/app.js" defer></script>
+</body>
+</html>
