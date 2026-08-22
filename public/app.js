@@ -128,7 +128,7 @@
 
     const select = $("#creatorSelect");
     select.innerHTML = state.creators
-      .map((c) => `<option value="${c.id}">${escapeHtml(c.name)}${c.isAdmin ? " (Admin)" : ""}</option>`)
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.name)}${c.isAdmin && c.name !== "Admin" ? " (Admin)" : ""}</option>`)
       .join("");
     state.creatorId = state.creators[0] ? state.creators[0].id : null;
     select.value = String(state.creatorId);

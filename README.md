@@ -111,11 +111,17 @@ This runs Pages Functions + the static frontend together via
 
 ## Demo script
 
-The seed data is written with relative dates, so it looks fresh no matter
-when you seed it:
+Four seeded creators: **Tylor C.** and **Sam Okafor** and **Priya
+Natarajan** are working creators, and **Admin** is a plain admin-only
+account for the Approvals/Submissions views. The seed data is written with
+relative dates, so it looks fresh no matter when you seed it:
 
-- **Acme Corp** (daily) and **Evergreen Dental** (Sun/Tue/Thu) sit unclaimed
-  in the pool — claim one to see a cycle get generated immediately.
+- **Tylor C.** already has **Acme Corp** (daily "Client Profile Refresh")
+  claimed, with two completed cycles in its history and one due today —
+  mark it done to watch the next cycle roll forward exactly 1 day.
+- **Evergreen Dental** (Sun/Tue/Thu) and **Harbor Fitness** (every 5 days)
+  sit unclaimed in the pool — claim one to see a cycle get generated
+  immediately.
 - **Bluebird Media** (weekly, claimed by Sam Okafor) has two completed
   cycles in its history and one due today — mark it done to watch the next
   cycle roll forward exactly 7 days.
@@ -123,8 +129,8 @@ when you seed it:
   days overdue — load the board and the safety net will have already
   flagged it `missed` and backfilled a fresh pending cycle.
 - **Coastal Realty** (monthly, claimed by Priya Natarajan) seeds with a
-  pending drop request — switch to Tylor C. (the admin) and open
-  **Approvals** to approve or reject it.
-- Switch to Tylor C. and open **Submissions** to see every completed
+  pending drop request — switch to **Admin** and open **Approvals** to
+  approve or reject it.
+- Switch to **Admin** and open **Submissions** to see every completed
   cycle across all creators, filterable by client/creator/date range and
   sortable — due date vs. completed-at makes late submissions easy to spot.
