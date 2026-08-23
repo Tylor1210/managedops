@@ -25,6 +25,13 @@
   </div>
 </div>
 
+<div id="detailOverlay" class="modal-overlay" hidden>
+  <div class="modal modal-lg" role="dialog" aria-modal="true">
+    <button type="button" class="modal-close" id="detailClose" aria-label="Close">&times;</button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">
@@ -52,8 +59,11 @@
 
       <section class="panel" id="panel-unclaimed">
         <header class="panel-head">
-          <h2>Unclaimed pool</h2>
-          <span class="count-badge" id="count-unclaimed">0</span>
+          <div class="panel-head-title">
+            <h2>Unclaimed pool</h2>
+            <span class="count-badge" id="count-unclaimed">0</span>
+          </div>
+          <button id="newJobBtn" class="btn btn-secondary btn-sm" hidden>+ New job</button>
         </header>
         <div class="card-grid" id="list-unclaimed"></div>
       </section>

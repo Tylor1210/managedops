@@ -33,13 +33,19 @@ whole flow live.
   `missed` (never deleted) and backfills a fresh pending cycle for any
   claimed op that's missing one. In a real deployment, point a Cloudflare
   Cron Trigger at a small Worker that calls the same logic on a schedule.
+- **Job details**: click any job card (unclaimed, mine, due, or an admin
+  approval) to open it and read its SOP — a description of what needs to be
+  done plus an ordered steps checklist. Admins can create new jobs (`+ New
+  job` in the Unclaimed pool) or edit an existing job's description/steps at
+  any time from the same detail view; neither field is required to save.
 
 ## Data model
 
 - `clients` — who the recurring work is for
 - `creators` — who does the work (`is_admin` flags the admin role)
 - `managed_ops` — one row per recurring job (client, task type, cadence,
-  status, who claimed it, pending drop request flag)
+  status, who claimed it, pending drop request flag, and an optional
+  admin-authored description + ordered steps checklist — the job's SOP)
 - `op_cycles` — one row per due occurrence of an op (due date, status,
   completion timestamp + who completed it)
 - `claim_events` — audit log of claim/drop/approve/reject actions
@@ -53,6 +59,8 @@ functions/api/          Pages Functions (the API)
   bootstrap.ts             GET  /api/bootstrap
   ops/claim.ts             POST /api/ops/claim
   ops/drop.ts              POST /api/ops/drop
+  ops/create.ts            POST /api/ops/create (admin-only)
+  ops/details.ts           POST /api/ops/details (admin-only)
   cycles/complete.ts       POST /api/cycles/complete
   admin/approvals.ts       GET/POST /api/admin/approvals
   admin/submissions.ts     GET  /api/admin/submissions
