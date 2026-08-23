@@ -661,7 +661,7 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 
 .week-column {
   width: 100%;
-  border: 1px solid var(--border);
+  border: 2px solid var(--gray);
   border-radius: var(--radius-sm);
   background: var(--surface-sunken);
   padding: 10px;
@@ -673,11 +673,13 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 .week-column.is-today {
   background: var(--accent-soft);
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .week-column.is-overdue {
   background: var(--red-soft);
   border-color: var(--red);
+  box-shadow: 0 0 0 1px var(--red);
 }
 
 .week-col-head {
