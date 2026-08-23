@@ -369,15 +369,20 @@
     if (buckets.overdue.length) {
       columns.push({ label: "Overdue", dateLabel: "", items: buckets.overdue, isOverdue: true });
     }
-    weekdayLabels.forEach((label, i) => {
-      const date = addDaysUTC(monday, i);
+    // Rotate the Mon-Fri tiles so today's tile always leads the stack,
+    // wrapping around through the rest of the week.
+    const todayDow = today.getUTCDay(); // 0=Sun..6=Sat
+    const rotateStart = todayDow >= 1 && todayDow <= 5 ? todayDow - 1 : 0;
+    for (let i = 0; i < 5; i++) {
+      const idx = (rotateStart + i) % 5;
+      const date = addDaysUTC(monday, idx);
       columns.push({
-        label,
+        label: weekdayLabels[idx],
         dateLabel: fmtMonthDay(date),
-        items: buckets.weekdays[i],
+        items: buckets.weekdays[idx],
         isToday: daysFromToday(toDateStr(date)) === 0,
       });
-    });
+    }
     if (buckets.weekend.length) {
       columns.push({ label: "Weekend", dateLabel: "", items: buckets.weekend });
     }
