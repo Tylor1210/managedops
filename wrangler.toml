@@ -5,7 +5,7 @@ compatibility_date = "2024-09-23"
 [[d1_databases]]
 binding = "DB"
 database_name = "managed-ops-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "d53031c4-7058-4865-8475-48c70924bc8b"
 
 [vars]
 # When true (default), dropping a claimed op requires admin approval before it
