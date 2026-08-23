@@ -110,14 +110,25 @@
   </section>
 
   <section id="view-approvals" class="view" hidden>
-    <section class="panel">
-      <header class="panel-head">
-        <h2>Pending drop requests</h2>
-        <span class="count-badge" id="count-approvals">0</span>
-      </header>
-      <div class="card-grid" id="list-approvals"></div>
-      <p class="empty-note" id="empty-approvals" hidden>No pending drop requests.</p>
-    </section>
+    <div class="approvals-grid">
+      <section class="panel">
+        <header class="panel-head">
+          <h2>Pending submissions</h2>
+          <span class="count-badge" id="count-submission-approvals">0</span>
+        </header>
+        <div class="card-grid" id="list-submission-approvals"></div>
+        <p class="empty-note" id="empty-submission-approvals" hidden>No submissions awaiting review.</p>
+      </section>
+
+      <section class="panel">
+        <header class="panel-head">
+          <h2>Pending drop requests</h2>
+          <span class="count-badge" id="count-approvals">0</span>
+        </header>
+        <div class="card-grid" id="list-approvals"></div>
+        <p class="empty-note" id="empty-approvals" hidden>No pending drop requests.</p>
+      </section>
+    </div>
   </section>
 
   <section id="view-submissions" class="view" hidden>

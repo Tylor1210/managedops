@@ -60,7 +60,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const duePrepared = isAdmin
     ? env.DB.prepare(
-        `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.status AS cycleStatus,
+        `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.status AS cycleStatus, oc.rejected AS rejected,
                 mo.id AS opId, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
                 mo.description AS description, mo.steps AS steps,
                 c.id AS clientId, c.name AS clientName,
@@ -69,18 +69,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
          JOIN managed_ops mo ON mo.id = oc.managed_op_id
          JOIN clients c ON c.id = mo.client_id
          JOIN creators cr ON cr.id = mo.claimed_by
-         WHERE oc.status IN ('pending','missed') AND oc.due_date <= date('now', '+6 days')
+         WHERE oc.status IN ('pending','missed') AND oc.pending_review = 0 AND oc.due_date <= date('now', '+6 days')
          ORDER BY oc.due_date ASC`
       )
     : env.DB.prepare(
-        `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.status AS cycleStatus,
+        `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.status AS cycleStatus, oc.rejected AS rejected,
                 mo.id AS opId, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
                 mo.description AS description, mo.steps AS steps,
                 c.id AS clientId, c.name AS clientName
          FROM op_cycles oc
          JOIN managed_ops mo ON mo.id = oc.managed_op_id
          JOIN clients c ON c.id = mo.client_id
-         WHERE mo.claimed_by = ? AND oc.status IN ('pending','missed') AND oc.due_date <= date('now', '+6 days')
+         WHERE mo.claimed_by = ? AND oc.status IN ('pending','missed') AND oc.pending_review = 0 AND oc.due_date <= date('now', '+6 days')
          ORDER BY oc.due_date ASC`
       ).bind(creatorId);
 

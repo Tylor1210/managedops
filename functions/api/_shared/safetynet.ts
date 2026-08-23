@@ -14,7 +14,7 @@ export async function runSafetyNet(db: D1Database): Promise<void> {
   const today = todayStr();
 
   await db
-    .prepare(`UPDATE op_cycles SET status = 'missed' WHERE status = 'pending' AND due_date < date(?, '-1 day')`)
+    .prepare(`UPDATE op_cycles SET status = 'missed' WHERE status = 'pending' AND pending_review = 0 AND due_date < date(?, '-1 day')`)
     .bind(today)
     .run();
 

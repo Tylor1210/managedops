@@ -18,9 +18,17 @@ whole flow live.
 
 - **Claiming** an op claims all of its future occurrences. A creator claims
   a client's recurring task once — not every week. Each time an occurrence
-  ("cycle") is marked done, the next one is generated automatically, anchored
-  off the due date that was just completed (not "today"), so a late
-  completion doesn't shift the whole schedule forward.
+  ("cycle") is submitted, the next one is generated automatically right away,
+  anchored off the due date that was just submitted (not "today"), so a late
+  completion doesn't shift the whole schedule forward — and so one slow
+  review doesn't stall the whole cadence.
+- **Submission review**: clicking "Submit" doesn't finalize a cycle — it puts
+  it in the admin's Approvals queue (`Pending submissions`) with a note on
+  whether it came in early/on-time or late. An admin **approves** it (final,
+  now shows in the Submissions log) or **rejects** it, which sends the same
+  cycle back to the creator's This week board flagged with a red "Rejected —
+  redo" badge until they resubmit. A cycle awaiting review is hidden from
+  This week (nothing to act on until it's decided).
 - **Dropping** a claimed op is gated behind `DROP_REQUIRES_APPROVAL` (default
   `true` in `wrangler.toml`). When true, a drop request sits in the admin
   Approvals queue until approved or rejected. When false, drops release the
@@ -47,8 +55,10 @@ whole flow live.
   status, who claimed it, pending drop request flag, and an optional
   admin-authored description + ordered steps checklist — the job's SOP)
 - `op_cycles` — one row per due occurrence of an op (due date, status,
-  completion timestamp + who completed it)
-- `claim_events` — audit log of claim/drop/approve/reject actions
+  completion timestamp + who completed it, plus `pending_review` while a
+  submission awaits admin decision and `rejected` if it was sent back)
+- `claim_events` — audit log of claim/drop/submission/approve/reject actions,
+  optionally tied to a specific cycle for submission-review events
 
 ## Project layout
 
@@ -62,8 +72,9 @@ functions/api/          Pages Functions (the API)
   ops/create.ts            POST /api/ops/create (admin-only)
   ops/details.ts           POST /api/ops/details (admin-only)
   cycles/complete.ts       POST /api/cycles/complete
-  admin/approvals.ts       GET/POST /api/admin/approvals
-  admin/submissions.ts     GET  /api/admin/submissions
+  admin/approvals.ts       GET/POST /api/admin/approvals (drop requests)
+  admin/submission-approvals.ts  GET/POST /api/admin/submission-approvals
+  admin/submissions.ts     GET  /api/admin/submissions (finalized log)
   cron/safety-net.ts       POST /api/cron/safety-net (manual trigger)
 migrations/               D1 schema + demo seed data
 public/                   Static frontend (index.html, styles.css, app.js)
@@ -126,13 +137,17 @@ relative dates, so it looks fresh no matter when you seed it:
 
 - **Tylor C.** already has **Acme Corp** (daily "Client Profile Refresh")
   claimed, with two completed cycles in its history and one due today —
-  mark it done to watch the next cycle roll forward exactly 1 day.
+  submit it, then switch to **Admin** → **Approvals** → **Pending
+  submissions** to approve or reject it. Reject it and switch back to
+  Tylor C. to see it reappear on **This week** with a red "Rejected — redo"
+  badge, ready to resubmit.
 - **Evergreen Dental** (Sun/Tue/Thu) and **Harbor Fitness** (every 5 days)
   sit unclaimed in the pool — claim one to see a cycle get generated
   immediately.
 - **Bluebird Media** (weekly, claimed by Sam Okafor) has two completed
-  cycles in its history and one due today — mark it done to watch the next
-  cycle roll forward exactly 7 days.
+  cycles in its history and one due today — submit it to watch the next
+  cycle roll forward exactly 7 days (once approved, it lands in the
+  Submissions log).
 - **DriftCo** (every 3 days, claimed by Sam Okafor) seeds with a cycle 2
   days overdue — load the board and the safety net will have already
   flagged it `missed` and backfilled a fresh pending cycle.

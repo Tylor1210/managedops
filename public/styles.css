@@ -161,6 +161,17 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
   .board-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
+.approvals-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 800px) {
+  .approvals-grid { grid-template-columns: 1fr 1fr; }
+}
+
 .panel {
   min-width: 0;
   background: var(--surface);
@@ -745,6 +756,11 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
   flex-direction: column;
   gap: 5px;
   transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.week-item.is-rejected {
+  background: var(--red-soft);
+  border: 2px solid var(--red);
 }
 
 .week-item:hover {

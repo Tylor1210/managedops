@@ -129,6 +129,7 @@
   }
 
   function weekItemStatus(c) {
+    if (c.rejected) return { cls: "red", label: "Rejected — redo" };
     if (c.cycleStatus === "missed") return { cls: "red", label: "Missed" };
     const diff = daysFromToday(c.dueDate);
     if (diff < 0) return { cls: "red", label: diff === -1 ? "1 day overdue" : `${-diff} days overdue` };
@@ -307,7 +308,7 @@
     const isOwn = !c.creatorId || c.creatorId === state.creatorId;
     const idx = registerCard({ kind: "due", op: { ...c, id: c.opId }, cycle: c });
     return `
-      <div class="week-item" data-card-idx="${idx}">
+      <div class="week-item ${c.rejected ? "is-rejected" : ""}" data-card-idx="${idx}">
         <div class="week-item-top">
           <span class="status-dot ${status.cls}" style="margin-top:3px;"></span>
           <div>
@@ -317,7 +318,7 @@
           </div>
         </div>
         <span class="badge ${status.cls}">${escapeHtml(status.label)}</span>
-        ${isOwn ? `<button class="btn ${btnCls}" data-action="complete" data-cycle-id="${c.cycleId}">Mark done</button>` : ""}
+        ${isOwn ? `<button class="btn ${btnCls}" data-action="complete" data-cycle-id="${c.cycleId}">Submit</button>` : ""}
       </div>`;
   }
 
@@ -448,7 +449,7 @@
   async function completeCycle(cycleId) {
     try {
       await post("/api/cycles/complete", { cycleId, creatorId: state.creatorId });
-      showToast("Marked done.");
+      showToast("Submitted — waiting on admin approval.");
       loadBoard();
     } catch (err) {
       showToast(err.message, true);
@@ -458,10 +459,75 @@
   // ---------- Approvals ----------
 
   async function loadApprovals() {
+    state.cardData = [];
     try {
       const data = await get("/api/admin/approvals");
-      state.cardData = [];
       renderApprovals(data.approvals);
+    } catch (err) {
+      showToast(err.message, true);
+    }
+    try {
+      const data = await get("/api/admin/submission-approvals");
+      renderSubmissionApprovals(data.submissions);
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  }
+
+  function submissionTimingBadge(dueDate, submittedAt) {
+    const early = new Date(submittedAt.replace(" ", "T") + "Z") <= new Date(`${dueDate}T23:59:59Z`);
+    return early ? { cls: "green", label: "Early / on time" } : { cls: "amber", label: "Late" };
+  }
+
+  function renderSubmissionApprovals(rows) {
+    $("#count-submission-approvals").textContent = rows.length;
+    const el = $("#list-submission-approvals");
+    const empty = $("#empty-submission-approvals");
+    if (!rows.length) {
+      el.innerHTML = "";
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    el.innerHTML = rows
+      .map((r) => {
+        const timing = submissionTimingBadge(r.dueDate, r.submittedAt);
+        const idx = registerCard({ kind: "submission", op: { ...r, id: r.opId } });
+        return `
+      <div class="approval-card" data-card-idx="${idx}">
+        <div class="op-card-top">
+          <div>
+            <div class="op-client">${escapeHtml(r.clientName)}</div>
+            <div class="op-task">${escapeHtml(r.taskType)} · ${escapeHtml(r.cadenceDescription)}</div>
+          </div>
+        </div>
+        <div class="op-meta">
+          <span class="op-meta-item">Submitted by <strong>${escapeHtml(r.creatorName)}</strong></span>
+          <span class="op-meta-item">${fmtDateTime(r.submittedAt)}</span>
+        </div>
+        <div class="op-meta">
+          <span class="op-meta-item">Due ${fmtDate(r.dueDate)}</span>
+          <span class="badge ${timing.cls}">${escapeHtml(timing.label)}</span>
+        </div>
+        <div class="op-actions">
+          <button class="btn btn-primary btn-sm" data-action="approve-submission" data-cycle-id="${r.cycleId}">Approve</button>
+          <button class="btn btn-danger btn-sm" data-action="reject-submission" data-cycle-id="${r.cycleId}">Reject</button>
+        </div>
+      </div>`;
+      })
+      .join("");
+  }
+
+  async function decideSubmission(cycleId, decision) {
+    let note = null;
+    if (decision === "reject") {
+      note = await openModal({ title: "Reject submission", desc: "Let the creator know what to fix (optional).", confirmLabel: "Reject" });
+      if (note === null) return;
+    }
+    try {
+      await post("/api/admin/submission-approvals", { cycleId, adminId: state.creatorId, decision, note });
+      showToast(decision === "approve" ? "Submission approved." : "Submission rejected — sent back to the creator.");
+      loadApprovals();
     } catch (err) {
       showToast(err.message, true);
     }
@@ -702,14 +768,24 @@
         ? `<button class="btn btn-ghost" data-action="drop" data-op-id="${op.id}" ${op.pendingDropRequest ? "disabled" : ""}>${op.pendingDropRequest ? "Pending approval" : "Request drop"}</button>`
         : "";
     } else if (d.kind === "due") {
-      const badge = d.cycle.cycleStatus === "missed" ? { cls: "red", label: "Missed" } : dueBadge(d.cycle.dueDate);
+      const badge = d.cycle.rejected
+        ? { cls: "red", label: "Rejected — redo" }
+        : d.cycle.cycleStatus === "missed"
+        ? { cls: "red", label: "Missed" }
+        : dueBadge(d.cycle.dueDate);
       badgeHtml = `<span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>`;
-      footerHtml = isOwn ? `<button class="btn btn-primary" data-action="complete" data-cycle-id="${d.cycle.cycleId}">Mark done</button>` : "";
+      footerHtml = isOwn ? `<button class="btn btn-primary" data-action="complete" data-cycle-id="${d.cycle.cycleId}">Submit</button>` : "";
     } else if (d.kind === "approval") {
       badgeHtml = `<span class="badge violet">Drop requested</span>`;
       footerHtml = `
         <button class="btn btn-primary" data-action="approve" data-op-id="${op.id}">Approve</button>
         <button class="btn btn-danger" data-action="reject" data-op-id="${op.id}">Reject</button>`;
+    } else if (d.kind === "submission") {
+      const timing = submissionTimingBadge(op.dueDate, op.submittedAt);
+      badgeHtml = `<span class="badge ${timing.cls}">${escapeHtml(timing.label)}</span>`;
+      footerHtml = `
+        <button class="btn btn-primary" data-action="approve-submission" data-cycle-id="${op.cycleId}">Approve</button>
+        <button class="btn btn-danger" data-action="reject-submission" data-cycle-id="${op.cycleId}">Reject</button>`;
     }
 
     const editing = d.editing;
@@ -730,7 +806,7 @@
         ${badgeHtml}
       </div>
       ${
-        (d.kind === "mine" && op.nextDueDate) || op.creatorName
+        ((d.kind === "mine" && op.nextDueDate) || op.creatorName) && d.kind !== "submission"
           ? `<div class="op-meta">
                ${op.nextDueDate ? `<span class="op-meta-item">Next due ${fmtDate(op.nextDueDate)}</span>` : ""}
                ${op.creatorName ? `<span class="op-meta-item">Assigned to <strong>${escapeHtml(op.creatorName)}</strong></span>` : ""}
@@ -741,6 +817,15 @@
         d.kind === "approval"
           ? `<div class="op-meta"><span class="op-meta-item">Requested by <strong>${escapeHtml(op.requestedByName)}</strong></span><span class="op-meta-item">${fmtDateTime(op.requestedAt)}</span></div>
              ${op.note ? `<div class="approval-note">${escapeHtml(op.note)}</div>` : ""}`
+          : ""
+      }
+      ${
+        d.kind === "submission"
+          ? `<div class="op-meta">
+               <span class="op-meta-item">Submitted by <strong>${escapeHtml(op.creatorName)}</strong></span>
+               <span class="op-meta-item">${fmtDateTime(op.submittedAt)}</span>
+               <span class="op-meta-item">Due ${fmtDate(op.dueDate)}</span>
+             </div>`
           : ""
       }
       <div class="detail-section">
@@ -869,6 +954,8 @@
       if (action === "complete") completeCycle(Number(cycleId));
       if (action === "approve") decideApproval(Number(opId), "approve");
       if (action === "reject") decideApproval(Number(opId), "reject");
+      if (action === "approve-submission") decideSubmission(Number(cycleId), "approve");
+      if (action === "reject-submission") decideSubmission(Number(cycleId), "reject");
       if (action === "edit-details") startEditDetails();
       if (action === "cancel-edit") cancelEditDetails();
       if (action === "save-details") saveDetails(Number(opId));
@@ -891,7 +978,7 @@
         renderDetailBody();
       }
 
-      if (insideDetail && ["claim", "drop", "complete", "approve", "reject"].includes(action)) {
+      if (insideDetail && ["claim", "drop", "complete", "approve", "reject", "approve-submission", "reject-submission"].includes(action)) {
         closeDetail();
       }
       return;
