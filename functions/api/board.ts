@@ -69,7 +69,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
          JOIN managed_ops mo ON mo.id = oc.managed_op_id
          JOIN clients c ON c.id = mo.client_id
          JOIN creators cr ON cr.id = mo.claimed_by
-         WHERE oc.status IN ('pending','missed') AND oc.due_date <= date('now', 'weekday 0')
+         WHERE oc.status IN ('pending','missed') AND oc.due_date <= date('now', '+6 days')
          ORDER BY oc.due_date ASC`
       )
     : env.DB.prepare(
@@ -80,7 +80,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
          FROM op_cycles oc
          JOIN managed_ops mo ON mo.id = oc.managed_op_id
          JOIN clients c ON c.id = mo.client_id
-         WHERE mo.claimed_by = ? AND oc.status IN ('pending','missed') AND oc.due_date <= date('now', 'weekday 0')
+         WHERE mo.claimed_by = ? AND oc.status IN ('pending','missed') AND oc.due_date <= date('now', '+6 days')
          ORDER BY oc.due_date ASC`
       ).bind(creatorId);
 

@@ -111,10 +111,6 @@
     return r;
   }
 
-  function toDateStr(date) {
-    return date.toISOString().slice(0, 10);
-  }
-
   function fmtMonthDay(date) {
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
   }
@@ -349,10 +345,17 @@
     $("#count-due").textContent = cycles.length;
     const el = $("#list-due");
 
+    // "This week" is a rolling 7-day window (today .. today+6), not a fixed
+    // Mon-Sun calendar week -- otherwise anything due a few days out gets
+    // wrongly bucketed into "next week" whenever today happens to be a
+    // Saturday or Sunday, since the calendar week would already be over.
     const today = todayUTC();
-    const daysSinceMonday = (today.getUTCDay() + 6) % 7;
-    const monday = addDaysUTC(today, -daysSinceMonday);
+    const todayDow = today.getUTCDay(); // 0=Sun..6=Sat
     const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+    function dateForDow(dow) {
+      return addDaysUTC(today, (dow - todayDow + 7) % 7);
+    }
 
     const buckets = { overdue: [], weekdays: [[], [], [], [], []], weekend: [] };
     cycles.forEach((c) => {
@@ -371,16 +374,15 @@
     }
     // Rotate the Mon-Fri tiles so today's tile always leads the stack,
     // wrapping around through the rest of the week.
-    const todayDow = today.getUTCDay(); // 0=Sun..6=Sat
     const rotateStart = todayDow >= 1 && todayDow <= 5 ? todayDow - 1 : 0;
     for (let i = 0; i < 5; i++) {
       const idx = (rotateStart + i) % 5;
-      const date = addDaysUTC(monday, idx);
+      const dow = idx + 1; // 1=Mon..5=Fri
       columns.push({
         label: weekdayLabels[idx],
-        dateLabel: fmtMonthDay(date),
+        dateLabel: fmtMonthDay(dateForDow(dow)),
         items: buckets.weekdays[idx],
-        isToday: daysFromToday(toDateStr(date)) === 0,
+        isToday: dow === todayDow,
       });
     }
     if (buckets.weekend.length) {
