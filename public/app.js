@@ -132,6 +132,14 @@
     return { cls: "gray", label: `Due ${fmtDate(dateStr)}` };
   }
 
+  function weekItemStatus(c) {
+    if (c.cycleStatus === "missed") return { cls: "red", label: "Missed" };
+    const diff = daysFromToday(c.dueDate);
+    if (diff < 0) return { cls: "red", label: diff === -1 ? "1 day overdue" : `${-diff} days overdue` };
+    if (diff === 0) return { cls: "amber", label: "Due today" };
+    return { cls: "gray", label: "Pending" };
+  }
+
   function mineBadge(op) {
     if (op.pendingDropRequest) return { cls: "violet", label: "Drop requested" };
     if (op.nextDueDate) return dueBadge(op.nextDueDate);
@@ -266,6 +274,7 @@
         const badge = mineBadge(op);
         const idx = registerCard({ kind: "mine", op });
         const dotCls = op.pendingDropRequest ? "violet" : badge.cls === "red" ? "red" : badge.cls === "amber" ? "amber" : "green";
+        const isOwn = !op.creatorId || op.creatorId === state.creatorId;
         return `
       <div class="op-card" data-card-idx="${idx}">
         <div class="op-card-top">
@@ -278,34 +287,41 @@
         <div class="op-meta">
           <span class="op-meta-item"><strong>${escapeHtml(op.cadenceDescription)}</strong></span>
           ${op.nextDueDate ? `<span class="op-meta-item">Next due ${fmtDate(op.nextDueDate)}</span>` : ""}
+          ${op.creatorName ? `<span class="op-meta-item">Assigned to <strong>${escapeHtml(op.creatorName)}</strong></span>` : ""}
         </div>
         <span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>
-        <div class="op-actions">
-          <button class="btn btn-ghost btn-sm" data-action="drop" data-op-id="${op.id}" ${op.pendingDropRequest ? "disabled" : ""}>
-            ${op.pendingDropRequest ? "Pending approval" : "Request drop"}
-          </button>
-        </div>
+        ${
+          isOwn
+            ? `<div class="op-actions">
+                <button class="btn btn-ghost btn-sm" data-action="drop" data-op-id="${op.id}" ${op.pendingDropRequest ? "disabled" : ""}>
+                  ${op.pendingDropRequest ? "Pending approval" : "Request drop"}
+                </button>
+              </div>`
+            : ""
+        }
       </div>`;
       })
       .join("");
   }
 
   function weekItemCard(c) {
-    const isOverdue = c.cycleStatus === "missed" || daysFromToday(c.dueDate) < 0;
-    const isToday = daysFromToday(c.dueDate) === 0;
-    const dotCls = c.cycleStatus === "missed" ? "red" : isOverdue ? "red" : isToday ? "amber" : "green";
-    const btnCls = isOverdue || isToday ? "btn-primary" : "btn-secondary";
+    const status = weekItemStatus(c);
+    const isUrgent = status.cls === "red" || status.cls === "amber";
+    const btnCls = isUrgent ? "btn-primary" : "btn-secondary";
+    const isOwn = !c.creatorId || c.creatorId === state.creatorId;
     const idx = registerCard({ kind: "due", op: { ...c, id: c.opId }, cycle: c });
     return `
       <div class="week-item" data-card-idx="${idx}">
         <div class="week-item-top">
-          <span class="status-dot ${dotCls}" style="margin-top:3px;"></span>
+          <span class="status-dot ${status.cls}" style="margin-top:3px;"></span>
           <div>
             <div class="week-item-client">${escapeHtml(c.clientName)}</div>
             <div class="week-item-task">${escapeHtml(c.taskType)}</div>
+            ${c.creatorName ? `<div class="week-item-task">${escapeHtml(c.creatorName)}</div>` : ""}
           </div>
         </div>
-        <button class="btn ${btnCls}" data-action="complete" data-cycle-id="${c.cycleId}">Mark done</button>
+        <span class="badge ${status.cls}">${escapeHtml(status.label)}</span>
+        ${isOwn ? `<button class="btn ${btnCls}" data-action="complete" data-cycle-id="${c.cycleId}">Mark done</button>` : ""}
       </div>`;
   }
 
@@ -667,17 +683,21 @@
     let badgeHtml = "";
     let footerHtml = "";
 
+    const isOwn = !op.creatorId || op.creatorId === state.creatorId;
+
     if (d.kind === "unclaimed") {
       badgeHtml = `<span class="badge gray">Unclaimed</span>`;
       footerHtml = `<button class="btn btn-primary" data-action="claim" data-op-id="${op.id}">Claim</button>`;
     } else if (d.kind === "mine") {
       const badge = mineBadge(op);
       badgeHtml = `<span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>`;
-      footerHtml = `<button class="btn btn-ghost" data-action="drop" data-op-id="${op.id}" ${op.pendingDropRequest ? "disabled" : ""}>${op.pendingDropRequest ? "Pending approval" : "Request drop"}</button>`;
+      footerHtml = isOwn
+        ? `<button class="btn btn-ghost" data-action="drop" data-op-id="${op.id}" ${op.pendingDropRequest ? "disabled" : ""}>${op.pendingDropRequest ? "Pending approval" : "Request drop"}</button>`
+        : "";
     } else if (d.kind === "due") {
       const badge = d.cycle.cycleStatus === "missed" ? { cls: "red", label: "Missed" } : dueBadge(d.cycle.dueDate);
       badgeHtml = `<span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>`;
-      footerHtml = `<button class="btn btn-primary" data-action="complete" data-cycle-id="${d.cycle.cycleId}">Mark done</button>`;
+      footerHtml = isOwn ? `<button class="btn btn-primary" data-action="complete" data-cycle-id="${d.cycle.cycleId}">Mark done</button>` : "";
     } else if (d.kind === "approval") {
       badgeHtml = `<span class="badge violet">Drop requested</span>`;
       footerHtml = `
@@ -703,8 +723,11 @@
         ${badgeHtml}
       </div>
       ${
-        d.kind === "mine" && op.nextDueDate
-          ? `<div class="op-meta"><span class="op-meta-item">Next due ${fmtDate(op.nextDueDate)}</span></div>`
+        (d.kind === "mine" && op.nextDueDate) || op.creatorName
+          ? `<div class="op-meta">
+               ${op.nextDueDate ? `<span class="op-meta-item">Next due ${fmtDate(op.nextDueDate)}</span>` : ""}
+               ${op.creatorName ? `<span class="op-meta-item">Assigned to <strong>${escapeHtml(op.creatorName)}</strong></span>` : ""}
+             </div>`
           : ""
       }
       ${
