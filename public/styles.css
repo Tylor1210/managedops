@@ -653,21 +653,14 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 
 /* ---------- Weekly schedule timeline ---------- */
 
-.week-scroll {
-  overflow-x: auto;
-  padding-bottom: 4px;
-  -webkit-overflow-scrolling: touch;
-}
-
 .week-grid {
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  min-width: min-content;
 }
 
 .week-column {
-  flex: 0 0 168px;
-  width: 168px;
+  width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-sunken);
