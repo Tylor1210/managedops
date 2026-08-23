@@ -12,8 +12,13 @@ interface OpRow {
   [key: string]: unknown;
 }
 
-function withCadence<T extends { cadenceType: CadenceType; cadenceConfig: string }>(row: T) {
-  return { ...row, cadenceConfig: JSON.parse(row.cadenceConfig || "{}"), cadenceDescription: describeCadence(row.cadenceType, JSON.parse(row.cadenceConfig || "{}")) };
+function withCadence<T extends { cadenceType: CadenceType; cadenceConfig: string; steps?: string }>(row: T) {
+  return {
+    ...row,
+    cadenceConfig: JSON.parse(row.cadenceConfig || "{}"),
+    cadenceDescription: describeCadence(row.cadenceType, JSON.parse(row.cadenceConfig || "{}")),
+    steps: JSON.parse(row.steps || "[]"),
+  };
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -29,6 +34,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const [unclaimed, mine, due, completed] = await Promise.all([
     env.DB.prepare(
       `SELECT mo.id, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
+              mo.description AS description, mo.steps AS steps,
               c.id AS clientId, c.name AS clientName
        FROM managed_ops mo JOIN clients c ON c.id = mo.client_id
        WHERE mo.status = 'unclaimed'
@@ -37,6 +43,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     env.DB.prepare(
       `SELECT mo.id, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
+              mo.description AS description, mo.steps AS steps,
               mo.claimed_at AS claimedAt, mo.pending_drop_request AS pendingDropRequest,
               c.id AS clientId, c.name AS clientName,
               (SELECT MIN(due_date) FROM op_cycles WHERE managed_op_id = mo.id AND status = 'pending') AS nextDueDate
@@ -48,13 +55,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     env.DB.prepare(
       `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.status AS cycleStatus,
               mo.id AS opId, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
+              mo.description AS description, mo.steps AS steps,
               c.id AS clientId, c.name AS clientName
        FROM op_cycles oc
        JOIN managed_ops mo ON mo.id = oc.managed_op_id
        JOIN clients c ON c.id = mo.client_id
        WHERE mo.claimed_by = ? AND oc.status IN ('pending','missed') AND oc.due_date <= date('now')
        ORDER BY oc.due_date ASC`
-    ).bind(creatorId).all(),
+    ).bind(creatorId).all<OpRow>(),
 
     env.DB.prepare(
       `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.completed_at AS completedAt,
@@ -73,7 +81,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   return json({
     unclaimed: (unclaimed.results ?? []).map(withCadence),
     mine: (mine.results ?? []).map(withCadence),
-    due: due.results ?? [],
+    due: (due.results ?? []).map(withCadence),
     completed: completed.results ?? [],
   });
 };
