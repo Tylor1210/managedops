@@ -76,12 +76,16 @@
         <div class="card-grid" id="list-mine"></div>
       </section>
 
-      <section class="panel" id="panel-due">
+      <section class="panel panel-wide" id="panel-due">
         <header class="panel-head">
-          <h2>Due &amp; overdue</h2>
-          <span class="count-badge" id="count-due">0</span>
+          <div class="panel-head-title">
+            <h2>This week</h2>
+            <span class="count-badge" id="count-due">0</span>
+          </div>
         </header>
-        <div class="card-grid" id="list-due"></div>
+        <div class="week-scroll">
+          <div class="week-grid" id="list-due"></div>
+        </div>
       </section>
 
       <section class="panel" id="panel-completed">

@@ -60,7 +60,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
        FROM op_cycles oc
        JOIN managed_ops mo ON mo.id = oc.managed_op_id
        JOIN clients c ON c.id = mo.client_id
-       WHERE mo.claimed_by = ? AND oc.status IN ('pending','missed') AND oc.due_date <= date('now')
+       WHERE mo.claimed_by = ? AND oc.status IN ('pending','missed') AND oc.due_date <= date('now', 'weekday 0')
        ORDER BY oc.due_date ASC`
     ).bind(creatorId).all<OpRow>(),
 

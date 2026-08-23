@@ -105,6 +105,20 @@
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   }
 
+  function addDaysUTC(date, n) {
+    const r = new Date(date);
+    r.setUTCDate(r.getUTCDate() + n);
+    return r;
+  }
+
+  function toDateStr(date) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  function fmtMonthDay(date) {
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  }
+
   function daysFromToday(dateStr) {
     const target = new Date(`${dateStr}T00:00:00Z`);
     return Math.round((target - todayUTC()) / 86400000);
@@ -276,34 +290,83 @@
       .join("");
   }
 
+  function weekItemCard(c) {
+    const isOverdue = c.cycleStatus === "missed" || daysFromToday(c.dueDate) < 0;
+    const isToday = daysFromToday(c.dueDate) === 0;
+    const dotCls = c.cycleStatus === "missed" ? "red" : isOverdue ? "red" : isToday ? "amber" : "green";
+    const btnCls = isOverdue || isToday ? "btn-primary" : "btn-secondary";
+    const idx = registerCard({ kind: "due", op: { ...c, id: c.opId }, cycle: c });
+    return `
+      <div class="week-item" data-card-idx="${idx}">
+        <div class="week-item-top">
+          <span class="status-dot ${dotCls}" style="margin-top:3px;"></span>
+          <div>
+            <div class="week-item-client">${escapeHtml(c.clientName)}</div>
+            <div class="week-item-task">${escapeHtml(c.taskType)}</div>
+          </div>
+        </div>
+        <button class="btn ${btnCls}" data-action="complete" data-cycle-id="${c.cycleId}">Mark done</button>
+      </div>`;
+  }
+
+  function weekColumnHtml(col) {
+    const headClasses = ["week-column"];
+    if (col.isToday) headClasses.push("is-today");
+    if (col.isOverdue) headClasses.push("is-overdue");
+    return `
+      <div class="${headClasses.join(" ")}">
+        <div class="week-col-head">
+          <div>
+            <div class="week-col-day">${escapeHtml(col.label)}</div>
+            ${col.dateLabel ? `<div class="week-col-date">${escapeHtml(col.dateLabel)}</div>` : ""}
+            ${col.isToday ? `<div class="week-today-pill">Today</div>` : ""}
+          </div>
+          <span class="week-col-count">${col.items.length}</span>
+        </div>
+        <div class="week-items">
+          ${col.items.length ? col.items.map(weekItemCard).join("") : `<p class="week-empty">${col.isOverdue ? "None" : "Nothing"}</p>`}
+        </div>
+      </div>`;
+  }
+
   function renderDue(cycles) {
     $("#count-due").textContent = cycles.length;
     const el = $("#list-due");
-    if (!cycles.length) {
-      el.innerHTML = `<p class="empty-note">Nothing due right now. Nice work.</p>`;
-      return;
+
+    const today = todayUTC();
+    const daysSinceMonday = (today.getUTCDay() + 6) % 7;
+    const monday = addDaysUTC(today, -daysSinceMonday);
+    const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+    const buckets = { overdue: [], weekdays: [[], [], [], [], []], weekend: [] };
+    cycles.forEach((c) => {
+      if (daysFromToday(c.dueDate) < 0) {
+        buckets.overdue.push(c);
+        return;
+      }
+      const dow = new Date(`${c.dueDate}T00:00:00Z`).getUTCDay();
+      if (dow >= 1 && dow <= 5) buckets.weekdays[dow - 1].push(c);
+      else buckets.weekend.push(c);
+    });
+
+    const columns = [];
+    if (buckets.overdue.length) {
+      columns.push({ label: "Overdue", dateLabel: "", items: buckets.overdue, isOverdue: true });
     }
-    el.innerHTML = cycles
-      .map((c) => {
-        const badge = c.cycleStatus === "missed" ? { cls: "red", label: "Missed" } : dueBadge(c.dueDate);
-        const idx = registerCard({ kind: "due", op: { ...c, id: c.opId }, cycle: c });
-        return `
-      <div class="op-card" data-card-idx="${idx}">
-        <div class="op-card-top">
-          <div>
-            <div class="op-client">${escapeHtml(c.clientName)}</div>
-            <div class="op-task">${escapeHtml(c.taskType)}</div>
-          </div>
-          <span class="status-dot ${badge.cls}"></span>
-        </div>
-        <div class="op-meta"><span class="op-meta-item">Due ${fmtDate(c.dueDate)}</span></div>
-        <span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>
-        <div class="op-actions">
-          <button class="btn btn-primary btn-sm" data-action="complete" data-cycle-id="${c.cycleId}">Mark done</button>
-        </div>
-      </div>`;
-      })
-      .join("");
+    weekdayLabels.forEach((label, i) => {
+      const date = addDaysUTC(monday, i);
+      columns.push({
+        label,
+        dateLabel: fmtMonthDay(date),
+        items: buckets.weekdays[i],
+        isToday: daysFromToday(toDateStr(date)) === 0,
+      });
+    });
+    if (buckets.weekend.length) {
+      columns.push({ label: "Weekend", dateLabel: "", items: buckets.weekend });
+    }
+
+    el.innerHTML = columns.map(weekColumnHtml).join("");
   }
 
   function renderCompleted(cycles) {
@@ -804,7 +867,7 @@
       return;
     }
 
-    const card = e.target.closest(".op-card[data-card-idx], .approval-card[data-card-idx]");
+    const card = e.target.closest(".op-card[data-card-idx], .approval-card[data-card-idx], .week-item[data-card-idx]");
     if (card) {
       const entry = state.cardData[Number(card.dataset.cardIdx)];
       if (entry) openJobDetail(entry);
