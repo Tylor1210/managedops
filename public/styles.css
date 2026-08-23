@@ -149,12 +149,16 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 .board-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 16px;
+  align-items: start;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 640px) {
   .board-grid { grid-template-columns: 1fr 1fr; }
-  .panel-wide { grid-column: 1 / -1; }
+}
+
+@media (min-width: 1100px) {
+  .board-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
 .panel {
@@ -202,16 +206,6 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
-}
-
-@media (min-width: 560px) {
-  .card-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (min-width: 900px) {
-  .card-grid { grid-template-columns: 1fr; }
-}
-@media (min-width: 1180px) {
-  .card-grid { grid-template-columns: 1fr 1fr; }
 }
 
 /* ---------- Op card ---------- */
