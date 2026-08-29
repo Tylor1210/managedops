@@ -186,6 +186,7 @@
       state.creatorId = Number(select.value);
       updateRoleUI();
       refreshCurrentTab();
+      connectPresence();
     });
 
     updateRoleUI();
@@ -1225,7 +1226,119 @@
   );
   $$(".sidebar-link.active").forEach((btn) => btn.addEventListener("click", () => setSidebarOpen(false)));
 
+  // ---------- Live cursor presence ----------
+  // Everyone connected sees everyone else's mouse move in real time, via a
+  // shared WebSocket room (a Durable Object in the separate presence-worker
+  // project -- see functions/api/presence.ts).
+
+  const PRESENCE_COLORS = ["#c2542f", "#2f6fc2", "#b8942f", "#7a3fc2", "#2f9e6f", "#c23f7a"];
+  const presenceSessionId = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random()}`;
+  const remoteCursors = new Map(); // id -> { el, lastSeen }
+  let presenceSocket = null;
+  let presenceReconnectTimer = null;
+
+  function presenceColorFor(creatorId) {
+    return PRESENCE_COLORS[Math.abs(creatorId || 0) % PRESENCE_COLORS.length];
+  }
+
+  // window.innerWidth/innerHeight can be unreliable in some embedding
+  // contexts; the document element's client box is the robust source.
+  function viewportWidth() {
+    return document.documentElement.clientWidth || window.innerWidth || 1;
+  }
+  function viewportHeight() {
+    return document.documentElement.clientHeight || window.innerHeight || 1;
+  }
+
+  function ensureCursorEl(id, name, color) {
+    let entry = remoteCursors.get(id);
+    if (!entry) {
+      const el = document.createElement("div");
+      el.className = "remote-cursor";
+      el.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 1l14 6-6 2-2 6z" fill="${color}" stroke="white" stroke-width="1"/></svg><span class="remote-cursor-label" style="background:${color}"></span>`;
+      document.body.appendChild(el);
+      entry = { el, lastSeen: Date.now() };
+      remoteCursors.set(id, entry);
+    }
+    entry.el.querySelector(".remote-cursor-label").textContent = name;
+    return entry;
+  }
+
+  function removeCursor(id) {
+    const entry = remoteCursors.get(id);
+    if (entry) {
+      entry.el.remove();
+      remoteCursors.delete(id);
+    }
+  }
+
+  function connectPresence() {
+    clearTimeout(presenceReconnectTimer);
+    if (presenceSocket) {
+      presenceSocket.onclose = null;
+      presenceSocket.close();
+    }
+    const creator = currentCreator();
+    const name = creator ? creator.name : "Someone";
+    const color = presenceColorFor(state.creatorId);
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${location.host}/api/presence?id=${encodeURIComponent(presenceSessionId)}&name=${encodeURIComponent(name)}&color=${encodeURIComponent(color)}`;
+
+    let socket;
+    try {
+      socket = new WebSocket(url);
+    } catch (_) {
+      return;
+    }
+    presenceSocket = socket;
+
+    socket.addEventListener("message", (event) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch (_) {
+        return;
+      }
+      if (data.type === "cursor" && isFinite(data.xPct) && isFinite(data.yPct)) {
+        const entry = ensureCursorEl(data.id, data.name, data.color);
+        entry.lastSeen = Date.now();
+        entry.el.style.left = `${data.xPct * viewportWidth()}px`;
+        entry.el.style.top = `${data.yPct * viewportHeight()}px`;
+      } else if (data.type === "leave") {
+        removeCursor(data.id);
+      }
+    });
+
+    socket.addEventListener("close", () => {
+      if (presenceSocket === socket) presenceSocket = null;
+      presenceReconnectTimer = setTimeout(connectPresence, 3000);
+    });
+
+    socket.addEventListener("error", () => socket.close());
+  }
+
+  let lastCursorSend = 0;
+  document.addEventListener("mousemove", (e) => {
+    const now = Date.now();
+    if (now - lastCursorSend < 50) return;
+    lastCursorSend = now;
+    if (!presenceSocket || presenceSocket.readyState !== WebSocket.OPEN) return;
+    const payload = { type: "cursor", xPct: e.clientX / viewportWidth(), yPct: e.clientY / viewportHeight() };
+    if (!isFinite(payload.xPct) || !isFinite(payload.yPct)) return;
+    presenceSocket.send(JSON.stringify(payload));
+  });
+
+  setInterval(() => {
+    const now = Date.now();
+    remoteCursors.forEach((entry, id) => {
+      if (now - entry.lastSeen > 10000) removeCursor(id);
+    });
+  }, 5000);
+
   // ---------- Init ----------
 
-  loadBootstrap().then(() => switchTab("board"));
+  loadBootstrap().then(() => {
+    switchTab("board");
+    connectPresence();
+  });
 })();

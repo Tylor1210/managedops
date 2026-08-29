@@ -7,6 +7,14 @@ binding = "DB"
 database_name = "managed-ops-db"
 database_id = "d53031c4-7058-4865-8475-48c70924bc8b"
 
+# Live-cursor presence room. Cloudflare Pages can't host its own Durable
+# Object, so this binds to the class exported by the separate
+# presence-worker/ project (see its README for deploy steps).
+[[durable_objects.bindings]]
+name = "PRESENCE"
+class_name = "PresenceRoom"
+script_name = "managed-ops-presence"
+
 [vars]
 # When true (default), dropping a claimed op requires admin approval before it
 # returns to the unclaimed pool. When false, drops release immediately and are

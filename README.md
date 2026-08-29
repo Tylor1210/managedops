@@ -46,6 +46,22 @@ whole flow live.
   done plus an ordered steps checklist. Admins can create new jobs (`+ New
   job` in the Unclaimed pool) or edit an existing job's description/steps at
   any time from the same detail view; neither field is required to save.
+- **Priority**: jobs can be Normal / High / Urgent. Urgent jobs get a
+  blinking red outline on their card everywhere they appear, so they're
+  impossible to miss on the board.
+- **Reassignment**: admins can move a claimed op to a different creator
+  directly from its job detail view, without going through drop → approve →
+  re-claim. The existing recurring schedule is untouched.
+- **Bulk actions**: multi-select checkboxes + a floating action bar on the
+  Unclaimed pool (bulk claim) and both Approvals panels (bulk approve/reject
+  drop requests and submissions).
+- **Live cursors**: every connected browser sees everyone else's mouse move
+  in real time, each labeled with their acting-as name. This runs on a
+  Durable Object in a separate Worker — see `presence-worker/README.md` for
+  why, and how to deploy/run it.
+- **Host app sidebar**: a left nav rail representing the existing product
+  this feature would ship inside of ("Managed Ops" is the only live item;
+  the rest are placeholders). Collapses to an off-canvas drawer on mobile.
 
 ## Data model
 
@@ -71,13 +87,18 @@ functions/api/          Pages Functions (the API)
   ops/drop.ts              POST /api/ops/drop
   ops/create.ts            POST /api/ops/create (admin-only)
   ops/details.ts           POST /api/ops/details (admin-only)
+  ops/reassign.ts          POST /api/ops/reassign (admin-only)
   cycles/complete.ts       POST /api/cycles/complete
   admin/approvals.ts       GET/POST /api/admin/approvals (drop requests)
   admin/submission-approvals.ts  GET/POST /api/admin/submission-approvals
   admin/submissions.ts     GET  /api/admin/submissions (finalized log)
   cron/safety-net.ts       POST /api/cron/safety-net (manual trigger)
+  presence.ts              GET  /api/presence (WebSocket, live cursors)
 migrations/               D1 schema + demo seed data
 public/                   Static frontend (index.html, styles.css, app.js)
+presence-worker/          Standalone Worker hosting the live-cursor Durable
+                           Object (Pages can't host its own DO) -- see its
+                           own README for why and how to deploy it
 ```
 
 ## Setup
@@ -100,6 +121,13 @@ Apply migrations (schema + seed data):
 ```bash
 npm run db:migrate:local    # for local dev
 npm run db:migrate:remote   # for the live D1 database
+```
+
+Deploy the presence Worker (needed for live cursors) and it'll be picked up
+by the `script_name` binding already in `wrangler.toml`:
+
+```bash
+cd presence-worker && wrangler deploy && cd ..
 ```
 
 ## Local development
@@ -157,3 +185,6 @@ relative dates, so it looks fresh no matter when you seed it:
 - Switch to **Admin** and open **Submissions** to see every completed
   cycle across all creators, filterable by client/creator/date range and
   sortable — due date vs. completed-at makes late submissions easy to spot.
+- Open the live URL in two browser windows side by side and move your
+  mouse in one — the other shows a live, labeled cursor. Good closer for a
+  demo.

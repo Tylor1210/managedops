@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   DROP_REQUIRES_APPROVAL?: string;
+  PRESENCE: DurableObjectNamespace;
 }
 
 export function json(data: unknown, status = 200): Response {
