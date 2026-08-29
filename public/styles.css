@@ -48,6 +48,127 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
+/* ---------- Host app shell / sidebar ----------
+   Represents the left nav rail of the existing product this feature ships
+   inside of. Only "Managed Ops" is live; the other items are placeholders
+   for the host app's other sections. */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  align-items: stretch;
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 18px;
+}
+
+.sidebar-brand-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 14px 10px 6px;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 10px;
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-align: left;
+  width: 100%;
+}
+
+.sidebar-link:hover { background: var(--surface-sunken); color: var(--text); }
+
+.sidebar-link.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 50;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    z-index: 45;
+    box-shadow: var(--shadow);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
+  .sidebar-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 27, 24, 0.4);
+    z-index: 44;
+  }
+}
+
 /* ---------- Top bar ---------- */
 
 .topbar {
@@ -222,6 +343,7 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 /* ---------- Op card ---------- */
 
 .op-card {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
@@ -233,10 +355,71 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
+/* ---------- Bulk select ---------- */
+
+.card-select {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  z-index: 2;
+}
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.bulk-bar-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .op-card:hover, .approval-card:hover {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
+
+/* ---------- Priority ---------- */
+
+@keyframes priority-blink {
+  0%, 100% { border-color: var(--red); box-shadow: 0 0 0 2px var(--red); }
+  50% { border-color: var(--red-soft); box-shadow: 0 0 0 2px transparent; }
+}
+
+.op-card.priority-urgent,
+.week-item.priority-urgent,
+.approval-card.priority-urgent {
+  border-color: var(--red);
+  animation: priority-blink 1s ease-in-out infinite;
+}
+
+.priority-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.priority-tag.high { color: var(--amber); }
+.priority-tag.urgent { color: var(--red); }
 
 .op-card-top {
   display: flex;
@@ -401,6 +584,7 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 /* ---------- Approval card ---------- */
 
 .approval-card {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 14px;

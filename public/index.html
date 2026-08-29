@@ -32,6 +32,31 @@
   </div>
 </div>
 
+<div class="app-shell">
+
+<button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle navigation">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="sidebar-brand-name">Ops Suite</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Workspace</div>
+    <button type="button" class="sidebar-link" data-host-nav>Dashboard</button>
+    <button type="button" class="sidebar-link" data-host-nav>Leads</button>
+    <button type="button" class="sidebar-link" data-host-nav>Profiles</button>
+    <button type="button" class="sidebar-link active" aria-current="page">Managed Ops</button>
+    <button type="button" class="sidebar-link" data-host-nav>Conversion</button>
+    <button type="button" class="sidebar-link" data-host-nav>Subscribed</button>
+    <div class="sidebar-section-label">Workspace tools</div>
+    <button type="button" class="sidebar-link" data-host-nav>Support</button>
+  </nav>
+</aside>
+
+<div class="main-content">
+
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">
@@ -162,6 +187,9 @@
   </section>
 
 </main>
+
+</div><!-- /.main-content -->
+</div><!-- /.app-shell -->
 
 <script src="/app.js" defer></script>
 </body>

@@ -9,6 +9,8 @@
     tab: "board",
     cardData: [],
     detail: null,
+    cache: { unclaimed: [], approvals: [], submissionApprovals: [] },
+    selected: { unclaimed: new Set(), approvals: new Set(), submissionApprovals: new Set() },
   };
 
   const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -137,6 +139,16 @@
     return { cls: "gray", label: "Pending" };
   }
 
+  function priorityTagHtml(op) {
+    if (op.priority === "urgent") return `<span class="priority-tag urgent">Urgent</span>`;
+    if (op.priority === "high") return `<span class="priority-tag high">High priority</span>`;
+    return "";
+  }
+
+  function priorityCardClass(op) {
+    return op.priority === "urgent" ? "priority-urgent" : "";
+  }
+
   function mineBadge(op) {
     if (op.pendingDropRequest) return { cls: "violet", label: "Drop requested" };
     if (op.nextDueDate) return dueBadge(op.nextDueDate);
@@ -222,6 +234,7 @@
     try {
       const data = await get(`/api/board?${qs}`);
       state.cardData = [];
+      state.selected.unclaimed.clear();
       renderUnclaimed(data.unclaimed);
       renderMine(data.mine);
       renderDue(data.due);
@@ -232,17 +245,28 @@
   }
 
   function renderUnclaimed(ops) {
+    state.cache.unclaimed = ops;
     $("#count-unclaimed").textContent = ops.length;
     const el = $("#list-unclaimed");
     if (!ops.length) {
       el.innerHTML = `<p class="empty-note">Nothing waiting to be claimed.</p>`;
       return;
     }
-    el.innerHTML = ops
-      .map((op) => {
-        const idx = registerCard({ kind: "unclaimed", op });
-        return `
-      <div class="op-card" data-card-idx="${idx}">
+    const bulkBar =
+      state.selected.unclaimed.size > 0
+        ? `<div class="bulk-bar">
+             <span>${state.selected.unclaimed.size} selected</span>
+             <div class="bulk-bar-actions"><button class="btn btn-primary btn-sm" data-action="bulk-claim">Claim selected</button></div>
+           </div>`
+        : "";
+    el.innerHTML =
+      bulkBar +
+      ops
+        .map((op) => {
+          const idx = registerCard({ kind: "unclaimed", op });
+          return `
+      <div class="op-card ${priorityCardClass(op)}" data-card-idx="${idx}">
+        <input type="checkbox" class="card-select" data-panel="unclaimed" data-id="${op.id}" ${state.selected.unclaimed.has(op.id) ? "checked" : ""} aria-label="Select ${escapeHtml(op.taskType)}" />
         <div class="op-card-top">
           <div>
             <div class="op-client">${escapeHtml(op.clientName)}</div>
@@ -251,12 +275,13 @@
           <span class="status-dot gray" title="Unclaimed"></span>
         </div>
         <div class="op-meta"><span class="op-meta-item"><strong>${escapeHtml(op.cadenceDescription)}</strong></span></div>
+        ${priorityTagHtml(op)}
         <div class="op-actions">
           <button class="btn btn-primary btn-sm" data-action="claim" data-op-id="${op.id}">Claim</button>
         </div>
       </div>`;
-      })
-      .join("");
+        })
+        .join("");
   }
 
   function renderMine(ops) {
@@ -273,7 +298,7 @@
         const dotCls = op.pendingDropRequest ? "violet" : badge.cls === "red" ? "red" : badge.cls === "amber" ? "amber" : "green";
         const isOwn = !op.creatorId || op.creatorId === state.creatorId;
         return `
-      <div class="op-card" data-card-idx="${idx}">
+      <div class="op-card ${priorityCardClass(op)}" data-card-idx="${idx}">
         <div class="op-card-top">
           <div>
             <div class="op-client">${escapeHtml(op.clientName)}</div>
@@ -286,6 +311,7 @@
           ${op.nextDueDate ? `<span class="op-meta-item">Next due ${fmtDate(op.nextDueDate)}</span>` : ""}
           ${op.creatorName ? `<span class="op-meta-item">Assigned to <strong>${escapeHtml(op.creatorName)}</strong></span>` : ""}
         </div>
+        ${priorityTagHtml(op)}
         <span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>
         ${
           isOwn
@@ -308,13 +334,14 @@
     const isOwn = !c.creatorId || c.creatorId === state.creatorId;
     const idx = registerCard({ kind: "due", op: { ...c, id: c.opId }, cycle: c });
     return `
-      <div class="week-item ${c.rejected ? "is-rejected" : ""}" data-card-idx="${idx}">
+      <div class="week-item ${c.rejected ? "is-rejected" : ""} ${priorityCardClass(c)}" data-card-idx="${idx}">
         <div class="week-item-top">
           <span class="status-dot ${status.cls}" style="margin-top:3px;"></span>
           <div>
             <div class="week-item-client">${escapeHtml(c.clientName)}</div>
             <div class="week-item-task">${escapeHtml(c.taskType)}</div>
             ${c.creatorName ? `<div class="week-item-task">${escapeHtml(c.creatorName)}</div>` : ""}
+            ${priorityTagHtml(c)}
           </div>
         </div>
         <span class="badge ${status.cls}">${escapeHtml(status.label)}</span>
@@ -460,6 +487,8 @@
 
   async function loadApprovals() {
     state.cardData = [];
+    state.selected.approvals.clear();
+    state.selected.submissionApprovals.clear();
     try {
       const data = await get("/api/admin/approvals");
       renderApprovals(data.approvals);
@@ -480,6 +509,7 @@
   }
 
   function renderSubmissionApprovals(rows) {
+    state.cache.submissionApprovals = rows;
     $("#count-submission-approvals").textContent = rows.length;
     const el = $("#list-submission-approvals");
     const empty = $("#empty-submission-approvals");
@@ -489,12 +519,25 @@
       return;
     }
     empty.hidden = true;
-    el.innerHTML = rows
-      .map((r) => {
-        const timing = submissionTimingBadge(r.dueDate, r.submittedAt);
-        const idx = registerCard({ kind: "submission", op: { ...r, id: r.opId } });
-        return `
+    const n = state.selected.submissionApprovals.size;
+    const bulkBar = n
+      ? `<div class="bulk-bar">
+           <span>${n} selected</span>
+           <div class="bulk-bar-actions">
+             <button class="btn btn-primary btn-sm" data-action="bulk-approve-submission">Approve selected</button>
+             <button class="btn btn-danger btn-sm" data-action="bulk-reject-submission">Reject selected</button>
+           </div>
+         </div>`
+      : "";
+    el.innerHTML =
+      bulkBar +
+      rows
+        .map((r) => {
+          const timing = submissionTimingBadge(r.dueDate, r.submittedAt);
+          const idx = registerCard({ kind: "submission", op: { ...r, id: r.opId } });
+          return `
       <div class="approval-card" data-card-idx="${idx}">
+        <input type="checkbox" class="card-select" data-panel="submissionApprovals" data-id="${r.cycleId}" ${state.selected.submissionApprovals.has(r.cycleId) ? "checked" : ""} aria-label="Select submission" />
         <div class="op-card-top">
           <div>
             <div class="op-client">${escapeHtml(r.clientName)}</div>
@@ -514,8 +557,8 @@
           <button class="btn btn-danger btn-sm" data-action="reject-submission" data-cycle-id="${r.cycleId}">Reject</button>
         </div>
       </div>`;
-      })
-      .join("");
+        })
+        .join("");
   }
 
   async function decideSubmission(cycleId, decision) {
@@ -533,7 +576,69 @@
     }
   }
 
+  // ---------- Bulk actions ----------
+
+  function plural(n, word) {
+    return `${n} ${word}${n === 1 ? "" : "s"}`;
+  }
+
+  async function bulkClaim() {
+    const ids = [...state.selected.unclaimed];
+    if (!ids.length) return;
+    const results = await Promise.allSettled(ids.map((opId) => post("/api/ops/claim", { opId, creatorId: state.creatorId })));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    showToast(failed ? `Claimed ${ids.length - failed}, ${failed} failed.` : `Claimed ${plural(ids.length, "op")}.`, !!failed);
+    state.selected.unclaimed.clear();
+    loadBoard();
+  }
+
+  async function bulkDecideDrops(decision) {
+    const ids = [...state.selected.approvals];
+    if (!ids.length) return;
+    let note = null;
+    if (decision === "reject") {
+      note = await openModal({ title: `Reject ${plural(ids.length, "drop request")}`, desc: "Optional note applied to all.", confirmLabel: "Reject all" });
+      if (note === null) return;
+    }
+    const results = await Promise.allSettled(ids.map((opId) => post("/api/admin/approvals", { opId, adminId: state.creatorId, decision, note })));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const verb = decision === "approve" ? "Approved" : "Rejected";
+    showToast(failed ? `${verb} ${ids.length - failed}, ${failed} failed.` : `${verb} ${plural(ids.length, "drop request")}.`, !!failed);
+    state.selected.approvals.clear();
+    loadApprovals();
+  }
+
+  async function bulkDecideSubmissions(decision) {
+    const ids = [...state.selected.submissionApprovals];
+    if (!ids.length) return;
+    let note = null;
+    if (decision === "reject") {
+      note = await openModal({ title: `Reject ${plural(ids.length, "submission")}`, desc: "Optional note applied to all.", confirmLabel: "Reject all" });
+      if (note === null) return;
+    }
+    const results = await Promise.allSettled(ids.map((cycleId) => post("/api/admin/submission-approvals", { cycleId, adminId: state.creatorId, decision, note })));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const verb = decision === "approve" ? "Approved" : "Rejected";
+    showToast(failed ? `${verb} ${ids.length - failed}, ${failed} failed.` : `${verb} ${plural(ids.length, "submission")}.`, !!failed);
+    state.selected.submissionApprovals.clear();
+    loadApprovals();
+  }
+
+  document.addEventListener("change", (e) => {
+    if (!e.target.classList.contains("card-select")) return;
+    const panel = e.target.dataset.panel;
+    const id = Number(e.target.dataset.id);
+    const set = state.selected[panel];
+    if (!set) return;
+    if (e.target.checked) set.add(id);
+    else set.delete(id);
+    if (panel === "unclaimed") renderUnclaimed(state.cache.unclaimed);
+    if (panel === "approvals") renderApprovals(state.cache.approvals);
+    if (panel === "submissionApprovals") renderSubmissionApprovals(state.cache.submissionApprovals);
+  });
+
   function renderApprovals(rows) {
+    state.cache.approvals = rows;
     $("#count-approvals").textContent = rows.length;
     const el = $("#list-approvals");
     const empty = $("#empty-approvals");
@@ -543,11 +648,24 @@
       return;
     }
     empty.hidden = true;
-    el.innerHTML = rows
-      .map((r) => {
-        const idx = registerCard({ kind: "approval", op: { ...r, id: r.opId } });
-        return `
+    const n = state.selected.approvals.size;
+    const bulkBar = n
+      ? `<div class="bulk-bar">
+           <span>${n} selected</span>
+           <div class="bulk-bar-actions">
+             <button class="btn btn-primary btn-sm" data-action="bulk-approve-drop">Approve selected</button>
+             <button class="btn btn-danger btn-sm" data-action="bulk-reject-drop">Reject selected</button>
+           </div>
+         </div>`
+      : "";
+    el.innerHTML =
+      bulkBar +
+      rows
+        .map((r) => {
+          const idx = registerCard({ kind: "approval", op: { ...r, id: r.opId } });
+          return `
       <div class="approval-card" data-card-idx="${idx}">
+        <input type="checkbox" class="card-select" data-panel="approvals" data-id="${r.opId}" ${state.selected.approvals.has(r.opId) ? "checked" : ""} aria-label="Select drop request" />
         <div class="op-card-top">
           <div>
             <div class="op-client">${escapeHtml(r.clientName)}</div>
@@ -564,8 +682,8 @@
           <button class="btn btn-danger btn-sm" data-action="reject" data-op-id="${r.opId}">Reject</button>
         </div>
       </div>`;
-      })
-      .join("");
+        })
+        .join("");
   }
 
   async function decideApproval(opId, decision) {
@@ -641,9 +759,35 @@
   }
 
   function openJobDetail(entry) {
-    state.detail = { mode: "view", kind: entry.kind, op: entry.op, cycle: entry.cycle || null, editing: false, draft: null };
+    state.detail = {
+      mode: "view",
+      kind: entry.kind,
+      op: entry.op,
+      cycle: entry.cycle || null,
+      editing: false,
+      draft: null,
+      reassignTo: entry.op.creatorId || null,
+    };
     renderDetailBody();
     $("#detailOverlay").hidden = false;
+  }
+
+  async function reassignOp() {
+    const d = state.detail;
+    const newCreatorId = Number(d.reassignTo);
+    if (!newCreatorId) return;
+    if (newCreatorId === d.op.creatorId) {
+      showToast("Already assigned to that creator.", true);
+      return;
+    }
+    try {
+      await post("/api/ops/reassign", { opId: d.op.id, adminId: state.creatorId, newCreatorId });
+      showToast("Reassigned.");
+      closeDetail();
+      refreshCurrentTab();
+    } catch (err) {
+      showToast(err.message, true);
+    }
   }
 
   function openCreateJob() {
@@ -656,6 +800,7 @@
         cadenceConfig: { interval: "3", weekdays: [] },
         description: "",
         steps: [],
+        priority: "normal",
       },
     };
     renderDetailBody();
@@ -733,6 +878,14 @@
           </select>
         </div>
         ${cadenceFieldsHtml(d.draft)}
+        <div class="detail-form-field">
+          <label>Priority</label>
+          <select data-field="priority">
+            <option value="normal" ${d.draft.priority === "normal" ? "selected" : ""}>Normal</option>
+            <option value="high" ${d.draft.priority === "high" ? "selected" : ""}>High</option>
+            <option value="urgent" ${d.draft.priority === "urgent" ? "selected" : ""}>Urgent</option>
+          </select>
+        </div>
         <div class="detail-section">
           <div class="detail-section-label">Description <span style="text-transform:none;font-weight:400;">(optional)</span></div>
           <div class="detail-form-field">
@@ -804,7 +957,24 @@
       <div class="detail-badges">
         <span class="badge gray">${escapeHtml(op.cadenceDescription)}</span>
         ${badgeHtml}
+        ${
+          !editing && op.priority && op.priority !== "normal"
+            ? `<span class="badge ${op.priority === "urgent" ? "red" : "amber"}">${op.priority === "urgent" ? "Urgent" : "High priority"}</span>`
+            : ""
+        }
       </div>
+      ${
+        editing
+          ? `<div class="detail-form-field">
+               <label>Priority</label>
+               <select data-field="priority">
+                 <option value="normal" ${d.draft.priority === "normal" ? "selected" : ""}>Normal</option>
+                 <option value="high" ${d.draft.priority === "high" ? "selected" : ""}>High</option>
+                 <option value="urgent" ${d.draft.priority === "urgent" ? "selected" : ""}>Urgent</option>
+               </select>
+             </div>`
+          : ""
+      }
       ${
         ((d.kind === "mine" && op.nextDueDate) || op.creatorName) && d.kind !== "submission"
           ? `<div class="op-meta">
@@ -836,6 +1006,24 @@
         <div class="detail-section-label">Steps</div>
         ${stepsHtml}
       </div>
+      ${
+        isAdmin && !editing && (d.kind === "mine" || d.kind === "due")
+          ? `<div class="detail-section">
+               <div class="detail-section-label">Reassign</div>
+               <div class="detail-form-field">
+                 <select data-role="reassign-select">
+                   ${state.creators
+                     .map(
+                       (c) =>
+                         `<option value="${c.id}" ${String(c.id) === String(d.reassignTo ?? "") ? "selected" : ""}>${escapeHtml(c.name)}</option>`
+                     )
+                     .join("")}
+                 </select>
+               </div>
+               <button class="btn btn-secondary btn-sm" data-action="reassign" data-op-id="${op.id}">Reassign</button>
+             </div>`
+          : ""
+      }
       ${isAdmin && !editing ? `<div class="detail-note"><button class="btn btn-ghost btn-sm" data-action="edit-details">Edit description &amp; steps</button></div>` : ""}
       <div class="detail-footer">
         ${
@@ -849,7 +1037,7 @@
   function startEditDetails() {
     const d = state.detail;
     d.editing = true;
-    d.draft = { description: d.op.description || "", steps: [...(d.op.steps || [])] };
+    d.draft = { description: d.op.description || "", steps: [...(d.op.steps || [])], priority: d.op.priority || "normal" };
     renderDetailBody();
   }
 
@@ -863,10 +1051,11 @@
     const d = state.detail;
     const steps = d.draft.steps.map((s) => s.trim()).filter(Boolean);
     try {
-      await post("/api/ops/details", { opId, adminId: state.creatorId, description: d.draft.description, steps });
+      await post("/api/ops/details", { opId, adminId: state.creatorId, description: d.draft.description, steps, priority: d.draft.priority });
       showToast("Job details saved.");
       d.op.description = d.draft.description.trim() || null;
       d.op.steps = steps;
+      d.op.priority = d.draft.priority;
       d.editing = false;
       d.draft = null;
       renderDetailBody();
@@ -895,6 +1084,7 @@
         cadenceConfig: { interval: Number(d.cadenceConfig.interval) || 1, weekdays: d.cadenceConfig.weekdays || [] },
         description: d.description,
         steps: d.steps.map((s) => s.trim()).filter(Boolean),
+        priority: d.priority,
       });
       showToast("Job created.");
       closeDetail();
@@ -929,7 +1119,12 @@
   });
 
   $("#detailBody").addEventListener("change", (e) => {
-    if (!state.detail || !state.detail.draft) return;
+    if (!state.detail) return;
+    if (e.target.dataset.role === "reassign-select") {
+      state.detail.reassignTo = e.target.value;
+      return;
+    }
+    if (!state.detail.draft) return;
     const field = e.target.dataset.field;
     if (!field) return;
     state.detail.draft[field] = e.target.value;
@@ -944,6 +1139,8 @@
   // ---------- Event delegation ----------
 
   document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("card-select")) return;
+
     const btn = e.target.closest("button[data-action]");
     if (btn) {
       const { action, opId, cycleId, idx, day } = btn.dataset;
@@ -956,6 +1153,12 @@
       if (action === "reject") decideApproval(Number(opId), "reject");
       if (action === "approve-submission") decideSubmission(Number(cycleId), "approve");
       if (action === "reject-submission") decideSubmission(Number(cycleId), "reject");
+      if (action === "bulk-claim") bulkClaim();
+      if (action === "bulk-approve-drop") bulkDecideDrops("approve");
+      if (action === "bulk-reject-drop") bulkDecideDrops("reject");
+      if (action === "bulk-approve-submission") bulkDecideSubmissions("approve");
+      if (action === "bulk-reject-submission") bulkDecideSubmissions("reject");
+      if (action === "reassign") reassignOp();
       if (action === "edit-details") startEditDetails();
       if (action === "cancel-edit") cancelEditDetails();
       if (action === "save-details") saveDetails(Number(opId));
@@ -1004,6 +1207,23 @@
     btn.textContent = next === "asc" ? "↑ Oldest" : "↓ Newest";
     loadSubmissions();
   });
+
+  // ---------- Host app sidebar ----------
+
+  function setSidebarOpen(open) {
+    $("#sidebar").classList.toggle("open", open);
+    $("#sidebarBackdrop").classList.toggle("open", open);
+  }
+
+  $("#sidebarToggle").addEventListener("click", () => setSidebarOpen(!$("#sidebar").classList.contains("open")));
+  $("#sidebarBackdrop").addEventListener("click", () => setSidebarOpen(false));
+  $$(".sidebar-link[data-host-nav]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      showToast("This section isn't part of the Managed Ops demo.");
+      setSidebarOpen(false);
+    })
+  );
+  $$(".sidebar-link.active").forEach((btn) => btn.addEventListener("click", () => setSidebarOpen(false)));
 
   // ---------- Init ----------
 
