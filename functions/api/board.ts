@@ -38,7 +38,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const minePrepared = isAdmin
     ? env.DB.prepare(
         `SELECT mo.id, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
-                mo.description AS description, mo.steps AS steps,
+                mo.priority AS priority, mo.description AS description, mo.steps AS steps,
                 mo.claimed_at AS claimedAt, mo.pending_drop_request AS pendingDropRequest,
                 c.id AS clientId, c.name AS clientName,
                 cr.id AS creatorId, cr.name AS creatorName,
@@ -49,7 +49,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       )
     : env.DB.prepare(
         `SELECT mo.id, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
-                mo.description AS description, mo.steps AS steps,
+                mo.priority AS priority, mo.description AS description, mo.steps AS steps,
                 mo.claimed_at AS claimedAt, mo.pending_drop_request AS pendingDropRequest,
                 c.id AS clientId, c.name AS clientName,
                 (SELECT MIN(due_date) FROM op_cycles WHERE managed_op_id = mo.id AND status = 'pending') AS nextDueDate
@@ -62,7 +62,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     ? env.DB.prepare(
         `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.status AS cycleStatus, oc.rejected AS rejected,
                 mo.id AS opId, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
-                mo.description AS description, mo.steps AS steps,
+                mo.priority AS priority, mo.description AS description, mo.steps AS steps,
                 c.id AS clientId, c.name AS clientName,
                 cr.id AS creatorId, cr.name AS creatorName
          FROM op_cycles oc
@@ -75,7 +75,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     : env.DB.prepare(
         `SELECT oc.id AS cycleId, oc.due_date AS dueDate, oc.status AS cycleStatus, oc.rejected AS rejected,
                 mo.id AS opId, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
-                mo.description AS description, mo.steps AS steps,
+                mo.priority AS priority, mo.description AS description, mo.steps AS steps,
                 c.id AS clientId, c.name AS clientName
          FROM op_cycles oc
          JOIN managed_ops mo ON mo.id = oc.managed_op_id
@@ -87,7 +87,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const [unclaimed, mine, due, completed] = await Promise.all([
     env.DB.prepare(
       `SELECT mo.id, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
-              mo.description AS description, mo.steps AS steps,
+              mo.priority AS priority, mo.description AS description, mo.steps AS steps,
               c.id AS clientId, c.name AS clientName
        FROM managed_ops mo JOIN clients c ON c.id = mo.client_id
        WHERE mo.status = 'unclaimed'

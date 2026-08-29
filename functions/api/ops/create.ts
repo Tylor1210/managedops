@@ -1,5 +1,6 @@
 import { json, badRequest, type Env } from "../_shared/http";
 import { describeCadence, type CadenceType, type CadenceConfig } from "../_shared/cadence";
+import { sanitizePriority } from "../_shared/priority";
 
 const VALID_CADENCE_TYPES: CadenceType[] = ["daily", "weekly", "monthly", "every_n_days", "custom_weekdays"];
 
@@ -17,6 +18,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     cadenceConfig?: CadenceConfig;
     description?: string;
     steps?: string[];
+    priority?: string;
   }>();
 
   const adminId = Number(body.adminId);
@@ -51,12 +53,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const description = body.description?.trim() || null;
   const steps = JSON.stringify(sanitizeSteps(body.steps));
+  const priority = sanitizePriority(body.priority);
 
   const result = await env.DB.prepare(
-    `INSERT INTO managed_ops (client_id, task_type, cadence_type, cadence_config, status, description, steps)
-     VALUES (?, ?, ?, ?, 'unclaimed', ?, ?)`
+    `INSERT INTO managed_ops (client_id, task_type, cadence_type, cadence_config, status, description, steps, priority)
+     VALUES (?, ?, ?, ?, 'unclaimed', ?, ?, ?)`
   )
-    .bind(clientId, taskType, cadenceType, JSON.stringify(cadenceConfig), description, steps)
+    .bind(clientId, taskType, cadenceType, JSON.stringify(cadenceConfig), description, steps, priority)
     .run();
 
   return json({

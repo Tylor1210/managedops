@@ -4,7 +4,7 @@ import { describeCadence, type CadenceType } from "../_shared/cadence";
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const { results } = await env.DB.prepare(
     `SELECT mo.id AS opId, mo.task_type AS taskType, mo.cadence_type AS cadenceType, mo.cadence_config AS cadenceConfig,
-            mo.description AS description, mo.steps AS steps,
+            mo.priority AS priority, mo.description AS description, mo.steps AS steps,
             c.id AS clientId, c.name AS clientName,
             cr.id AS requestedById, cr.name AS requestedByName,
             ce.note, ce.created_at AS requestedAt
